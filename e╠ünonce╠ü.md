@@ -93,3 +93,5 @@ Pour chaque jeu de données, le joueur avec la meilleure solution remporte 1 mil
 Par exemple, si votre solution est deux fois moins efficace que celle du meilleur adversaire, votre score sur ce jeu de données sera de 500 000 points.  
 
 Le classement est déterminé en fonction du total de points obtenus. Seule votre meilleure soumission sur chaque jeu de données sera prise en compte. Vous pouvez soumettre autant de solutions que vous souhaitez.
+
+Saif
