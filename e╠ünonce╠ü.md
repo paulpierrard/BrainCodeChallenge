@@ -95,3 +95,4 @@ Par exemple, si votre solution est deux fois moins efficace que celle du meilleu
 Le classement est déterminé en fonction du total de points obtenus. Seule votre meilleure soumission sur chaque jeu de données sera prise en compte. Vous pouvez soumettre autant de solutions que vous souhaitez.
 
 Saif
+Adhem
