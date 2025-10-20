@@ -4,7 +4,7 @@ from collections import Counter
 
 def solve(dataset_txt):
     """
-    Fonction principale qui résout le problème de reconstruction d'image.
+    Fonction principale qui résout le problème de reconstruction d'im
     
     DIFFÉRENCE PRINCIPALE AVEC L'ANCIEN CODE:
     - Ancien: Approche Monte Carlo (teste des actions aléatoires)
