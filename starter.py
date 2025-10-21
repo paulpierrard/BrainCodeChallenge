@@ -203,7 +203,7 @@ if __name__ == '__main__':
     import test_solution
     import datetime
     
-    dataset_file = "1_example"
+    dataset_file = "2_invader"
     dataset = open(f'datasets/{dataset_file}.json').read()
 
     print('---------------------------------')
