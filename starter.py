@@ -1,214 +1,243 @@
 import json
-import random
 from collections import Counter
 
 def solve(dataset_txt):
     """
-    Fonction principale qui résout le problème de reconstruction d'images.
-    
-    DIFFÉRENCE PRINCIPALE AVEC L'ANCIEN CODE:
-    - Ancien: Approche Monte Carlo (teste des actions aléatoires)
-    - Nouveau: Approche déterministe et intelligente (analyse systématique)
+    Solution RAPIDE et efficace pour le problème Botksy.
+    Optimisée pour la vitesse tout en gardant un bon score.
     """
     
-    # Lecture des données du dataset
     dataset = json.loads(dataset_txt)
     
-    target_grid = dataset['grid']           # Grille cible à reproduire
-    max_actions = dataset['maxActions']     # Nombre max d'actions autorisées
-    max_jokers = dataset['maxJokers']       # Nombre max de JOKERs
-    max_joker_size = dataset['maxJokerSize'] # Surface max par JOKER
-    grid_height = len(target_grid)          # Hauteur de la grille
-    grid_width = len(target_grid[0])        # Largeur de la grille
+    target_grid = dataset['grid']
+    max_actions = dataset['maxActions']
+    max_jokers = dataset['maxJokers']
+    max_joker_size = dataset['maxJokerSize']
+    grid_height = len(target_grid)
+    grid_width = len(target_grid[0])
 
-    actions = []  # Liste des actions à effectuer
-    current_grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]  # Grille de travail (vide au départ)
-    jokers_used = 0  # Compteur de JOKERs utilisés
+    actions = []
+    current_grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
+    jokers_used = 0
 
     # ========================================
-    # STRATÉGIE 1: Remplissage initial intelligent
+    # STRATÉGIE 1: Remplissage couleur dominante
     # ========================================
-    # DIFFÉRENCE: L'ancien code partait d'une grille vide (tout à 0)
-    # Le nouveau code remplit d'abord avec la couleur dominante
-    
-    # Compter la fréquence de chaque couleur (sauf 0)
     color_counts = Counter()
     for row in target_grid:
         for color in row:
-            if color != 0:
-                color_counts[color] += 1
+            color_counts[color] += 1
     
-    # Si on trouve une couleur dominante, remplir toute la grille avec
     if color_counts:
-        most_common_color = color_counts.most_common(1)[0][0]
-        actions.append(f'RECT 0 0 {grid_width-1} {grid_height-1} {most_common_color}')
-        # Mettre à jour la grille courante
-        for y in range(grid_height):
-            for x in range(grid_width):
-                current_grid[y][x] = most_common_color
-
-    # ========================================
-    # STRATÉGIE 2: Fonction pour trouver le meilleur rectangle
-    # ========================================
-    # DIFFÉRENCE: L'ancien code testait des rectangles aléatoires
-    # Le nouveau explore systématiquement toutes les possibilités
-    
-    def find_best_rect(grid, target):
-        """
-        Trouve le meilleur rectangle RECT qui améliore le plus la grille.
-        
-        Retourne: (action, nouvelle_grille, score_amélioration)
-        """
-        best_score = 0          # Meilleure amélioration trouvée
-        best_action = None      # Meilleure action trouvée
-        best_new_grid = None    # État de la grille après cette action
-        
-        # Tester toutes les couleurs possibles (0 à 7)
-        for color in range(8):
-            # Tester tous les rectangles possibles
-            for y1 in range(grid_height):
-                for x1 in range(grid_width):
-                    # Limiter la taille pour éviter trop de calculs
-                    for y2 in range(y1, min(y1 + 20, grid_height)):
-                        for x2 in range(x1, min(x1 + 20, grid_width)):
-                            
-                            # Calculer l'amélioration apportée par ce rectangle
-                            improvement = 0
-                            for y in range(y1, y2 + 1):
-                                for x in range(x1, x2 + 1):
-                                    # +1 si on corrige un pixel incorrect
-                                    if grid[y][x] != target[y][x] and target[y][x] == color:
-                                        improvement += 1
-                                    # -1 si on casse un pixel correct
-                                    elif grid[y][x] == target[y][x] and target[y][x] != color:
-                                        improvement -= 1
-                            
-                            # Garder le meilleur rectangle trouvé
-                            if improvement > best_score:
-                                best_score = improvement
-                                best_action = f'RECT {x1} {y1} {x2} {y2} {color}'
-                                
-                                # Simuler l'application du rectangle
-                                sim_grid = [row[:] for row in grid]
-                                for y in range(y1, y2 + 1):
-                                    for x in range(x1, x2 + 1):
-                                        sim_grid[y][x] = color
-                                best_new_grid = sim_grid
-        
-        return best_action, best_new_grid, best_score
-
-    # ========================================
-    # STRATÉGIE 3: Fonction pour trouver le meilleur JOKER
-    # ========================================
-    # DIFFÉRENCE: L'ancien code testait des JOKERs aléatoires
-    # Le nouveau trouve le JOKER qui corrige le plus d'erreurs
-    
-    def find_best_joker(grid, target, max_size):
-        """
-        Trouve le meilleur JOKER (zone à copier exactement depuis la cible).
-        
-        Retourne: (action, nouvelle_grille, nombre_corrections)
-        """
-        best_score = 0
-        best_action = None
-        best_new_grid = None
-        
-        # Tester toutes les positions et tailles possibles
-        for y1 in range(grid_height):
-            for x1 in range(grid_width):
-                for y2 in range(y1, grid_height):
-                    for x2 in range(x1, grid_width):
-                        # Vérifier que la surface ne dépasse pas la limite
-                        area = (x2 - x1 + 1) * (y2 - y1 + 1)
-                        if area > max_size:
-                            continue
-                        
-                        # Compter combien de pixels seraient corrigés
-                        corrections = 0
-                        for y in range(y1, y2 + 1):
-                            for x in range(x1, x2 + 1):
-                                if grid[y][x] != target[y][x]:
-                                    corrections += 1
-                        
-                        # Garder le meilleur JOKER
-                        if corrections > best_score:
-                            best_score = corrections
-                            best_action = f'JOKER {x1} {y1} {x2} {y2}'
-                            
-                            # Simuler l'application du JOKER
-                            sim_grid = [row[:] for row in grid]
-                            for y in range(y1, y2 + 1):
-                                for x in range(x1, x2 + 1):
-                                    sim_grid[y][x] = target[y][x]
-                            best_new_grid = sim_grid
-        
-        return best_action, best_new_grid, best_score
-
-    # ========================================
-    # BOUCLE PRINCIPALE D'OPTIMISATION
-    # ========================================
-    # DIFFÉRENCE: L'ancien code faisait 100 tirages aléatoires par itération
-    # Le nouveau compare intelligemment RECT vs JOKER et choisit le meilleur
-    
-    while len(actions) < max_actions:
-        # Vérifier si la grille est parfaite
-        errors = sum(1 for y in range(grid_height) for x in range(grid_width) 
-                    if current_grid[y][x] != target_grid[y][x])
-        if errors == 0:
-            break  # Succès! On arrête
-        
-        # Chercher le meilleur rectangle RECT
-        rect_action, rect_grid, rect_score = find_best_rect(current_grid, target_grid)
-        
-        # Chercher le meilleur JOKER (si on en a encore)
-        joker_action, joker_grid, joker_score = None, None, 0
-        if jokers_used < max_jokers:
-            joker_action, joker_grid, joker_score = find_best_joker(current_grid, target_grid, max_joker_size)
-        
-        # ========================================
-        # DÉCISION: Choisir la meilleure action
-        # ========================================
-        # DIFFÉRENCE: L'ancien code choisissait aléatoirement
-        # Le nouveau compare les scores et choisit le meilleur
-        
-        if joker_score > rect_score and joker_action:
-            # Le JOKER est plus efficace
-            actions.append(joker_action)
-            current_grid = joker_grid
-            jokers_used += 1
-        elif rect_action and rect_score > 0:
-            # Le RECT est plus efficace (ou pas de JOKER dispo)
-            actions.append(rect_action)
-            current_grid = rect_grid
-        else:
-            # Aucune bonne action trouvée: corriger pixel par pixel
-            # (en dernier recours)
+        most_common_color, count = color_counts.most_common(1)[0]
+        if count > (grid_width * grid_height * 0.3):
+            actions.append(f'RECT 0 0 {grid_width-1} {grid_height-1} {most_common_color}')
             for y in range(grid_height):
                 for x in range(grid_width):
-                    if current_grid[y][x] != target_grid[y][x]:
-                        color = target_grid[y][x]
-                        actions.append(f'RECT {x} {y} {x} {y} {color}')
-                        current_grid[y][x] = color
-                        if len(actions) >= max_actions:
-                            return "\n".join(actions)
+                    current_grid[y][x] = most_common_color
+
+    # ========================================
+    # STRATÉGIE 2: Détection RAPIDE de rectangles par lignes
+    # ========================================
+    def find_horizontal_rects(grid, target):
+        """Trouve rapidement des rectangles horizontaux uniformes."""
+        best_actions = []
+        
+        for y in range(grid_height):
+            x = 0
+            while x < grid_width:
+                if grid[y][x] != target[y][x]:
+                    color = target[y][x]
+                    x_start = x
+                    
+                    # Étendre horizontalement
+                    while x < grid_width and target[y][x] == color and grid[y][x] != color:
+                        x += 1
+                    x_end = x - 1
+                    
+                    # Essayer d'étendre verticalement
+                    y_end = y
+                    can_extend = True
+                    while can_extend and y_end < grid_height - 1:
+                        for x_check in range(x_start, x_end + 1):
+                            if target[y_end + 1][x_check] != color or grid[y_end + 1][x_check] == color:
+                                can_extend = False
+                                break
+                        if can_extend:
+                            y_end += 1
+                    
+                    # Ajouter si le rectangle est assez grand
+                    area = (x_end - x_start + 1) * (y_end - y + 1)
+                    if area >= 3:  # Au moins 3 pixels
+                        best_actions.append((area, f'RECT {x_start} {y} {x_end} {y_end} {color}', x_start, y, x_end, y_end, color))
+                else:
+                    x += 1
+        
+        return best_actions
+
+    # ========================================
+    # STRATÉGIE 3: JOKERs ciblés sur zones complexes
+    # ========================================
+    def find_strategic_jokers(grid, target, max_size):
+        """Trouve des JOKERs dans les zones avec beaucoup d'erreurs."""
+        joker_candidates = []
+        
+        # Échantillonnage : tester seulement certaines positions (grille 5x5)
+        step = max(5, min(grid_height, grid_width) // 10)
+        
+        for y1 in range(0, grid_height, step):
+            for x1 in range(0, grid_width, step):
+                # Tester quelques tailles populaires
+                for size_factor in [0.5, 0.75, 1.0]:
+                    side = int((max_size * size_factor) ** 0.5)
+                    y2 = min(y1 + side - 1, grid_height - 1)
+                    x2 = min(x1 + side - 1, grid_width - 1)
+                    
+                    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+                    if area > max_size:
+                        continue
+                    
+                    corrections = sum(
+                        1 for y in range(y1, y2 + 1)
+                        for x in range(x1, x2 + 1)
+                        if grid[y][x] != target[y][x]
+                    )
+                    
+                    if corrections > 0:
+                        ratio = corrections / area
+                        joker_candidates.append((ratio, corrections, f'JOKER {x1} {y1} {x2} {y2}', x1, y1, x2, y2))
+        
+        # Trier par ratio décroissant
+        joker_candidates.sort(reverse=True)
+        return joker_candidates
+
+    # ========================================
+    # APPLICATION RAPIDE: Rectangles d'abord
+    # ========================================
+    iteration = 0
+    max_iterations = 20  # Limiter les itérations
+    
+    while len(actions) < max_actions and iteration < max_iterations:
+        iteration += 1
+        
+        errors = sum(
+            1 for y in range(grid_height) 
+            for x in range(grid_width) 
+            if current_grid[y][x] != target_grid[y][x]
+        )
+        
+        if errors == 0:
             break
+        
+        # Trouver les meilleurs rectangles horizontaux
+        rect_actions = find_horizontal_rects(current_grid, target_grid)
+        
+        if rect_actions:
+            # Trier par taille décroissante et prendre les meilleurs
+            rect_actions.sort(reverse=True)
+            
+            applied = 0
+            for area, action, x1, y, x2, y2, color in rect_actions[:10]:  # Max 10 par itération
+                # Vérifier si toujours valide
+                valid = all(
+                    current_grid[yy][xx] != target_grid[yy][xx] and target_grid[yy][xx] == color
+                    for yy in range(y, y2 + 1)
+                    for xx in range(x1, x2 + 1)
+                )
+                
+                if valid and len(actions) < max_actions:
+                    actions.append(action)
+                    for yy in range(y, y2 + 1):
+                        for xx in range(x1, x2 + 1):
+                            current_grid[yy][xx] = color
+                    applied += 1
+            
+            if applied > 0:
+                continue
+        
+        # Utiliser des JOKERs si nécessaire
+        if jokers_used < max_jokers:
+            joker_candidates = find_strategic_jokers(current_grid, target_grid, max_joker_size)
+            
+            for ratio, corrections, action, x1, y1, x2, y2 in joker_candidates[:3]:  # Top 3
+                if ratio >= 0.4 and jokers_used < max_jokers and len(actions) < max_actions:
+                    # Vérifier validité
+                    actual_corrections = sum(
+                        1 for y in range(y1, y2 + 1)
+                        for x in range(x1, x2 + 1)
+                        if current_grid[y][x] != target_grid[y][x]
+                    )
+                    
+                    if actual_corrections > 0:
+                        actions.append(action)
+                        for y in range(y1, y2 + 1):
+                            for x in range(x1, x2 + 1):
+                                current_grid[y][x] = target_grid[y][x]
+                        jokers_used += 1
+                        break
+        
+        # Si rien ne marche, passer à la correction ciblée
+        if len(rect_actions) == 0:
+            break
+    
+    # ========================================
+    # PHASE FINALE: Corrections par petits rectangles
+    # ========================================
+    errors_remaining = [
+        (y, x) for y in range(grid_height) 
+        for x in range(grid_width) 
+        if current_grid[y][x] != target_grid[y][x]
+    ]
+    
+    # Grouper les erreurs proches
+    processed = set()
+    for y, x in errors_remaining:
+        if (y, x) in processed or len(actions) >= max_actions:
+            continue
+        
+        color = target_grid[y][x]
+        
+        # Trouver un petit rectangle autour de ce pixel
+        x_end = x
+        while x_end < grid_width - 1 and target_grid[y][x_end + 1] == color and current_grid[y][x_end + 1] != color:
+            x_end += 1
+        
+        y_end = y
+        can_extend = True
+        while can_extend and y_end < grid_height - 1:
+            for x_check in range(x, x_end + 1):
+                if target_grid[y_end + 1][x_check] != color or current_grid[y_end + 1][x_check] == color:
+                    can_extend = False
+                    break
+            if can_extend:
+                y_end += 1
+        
+        actions.append(f'RECT {x} {y} {x_end} {y_end} {color}')
+        for yy in range(y, y_end + 1):
+            for xx in range(x, x_end + 1):
+                current_grid[yy][xx] = color
+                processed.add((yy, xx))
 
     return "\n".join(actions)
 
 
 # ========================================
-# CODE DE TEST (identique à l'ancien)
+# CODE DE TEST
 # ========================================
 if __name__ == '__main__':
     import test_solution
     import datetime
+    import time
     
     dataset_file = "4_pacman"
     dataset = open(f'datasets/{dataset_file}.json').read()
 
     print('---------------------------------')
     print(f'Résolution de {dataset_file}')
+    start_time = time.time()
     solution = solve(dataset)
+    elapsed_time = time.time() - start_time
+    print(f'Temps d\'exécution: {elapsed_time:.2f}s')
     print('---------------------------------')
     score, is_valid, message = test_solution.get_solution_score(solution, dataset)
 
